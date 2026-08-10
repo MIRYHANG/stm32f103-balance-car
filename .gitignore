@@ -1,0 +1,15 @@
+# 编译目录
+build/
+cmake-build-*/
+
+# 编译产物
+*.o
+*.obj
+*.elf
+*.hex
+*.bin
+*.map
+
+# CLion 本地状态
+.idea/workspace.xml
+.idea/shelf/
