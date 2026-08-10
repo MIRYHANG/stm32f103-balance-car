@@ -61,4 +61,10 @@ void MPU6050_Init(void)
 
     //设置低通滤波的值为184Hz 188Hz
     MPU6050_Write_Reg(0x1A,1);
+
+    //配置使用的系统时钟为添加PLL
+    MPU6050_Write_Reg(0x6B,0x01);
+
+    //使能加速度传感器 角速度传感器
+    MPU6050_Write_Reg(0x6C,0x00);
 }
