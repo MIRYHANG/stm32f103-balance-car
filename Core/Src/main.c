@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "oled.h"
 
 /* USER CODE END Includes */
 
@@ -98,6 +99,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
+  OLED_Init();
+  OLED_Clear();
+  OLED_ShowString(20, 0, "Balance Car", OLED_8X16);
+  OLED_ShowString(36, 24, "OLED OK", OLED_8X16);
+  OLED_Update();
 
   /* USER CODE END 2 */
 

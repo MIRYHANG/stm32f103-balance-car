@@ -102,12 +102,14 @@ _BEGIN_STD_C
 
 /* ^^^ SPI config ^^^ */
 
-#if defined(SSD1306_USE_I2C)
+#if defined(SSD1306_USE_SW_I2C)
+/* Software I2C does not need a HAL I2C handle. */
+#elif defined(SSD1306_USE_I2C)
 extern I2C_HandleTypeDef SSD1306_I2C_PORT;
 #elif defined(SSD1306_USE_SPI)
 extern SPI_HandleTypeDef SSD1306_SPI_PORT;
 #else
-#error "You should define SSD1306_USE_SPI or SSD1306_USE_I2C macro!"
+#error "You should define SSD1306_USE_SW_I2C, SSD1306_USE_SPI or SSD1306_USE_I2C macro!"
 #endif
 
 // SSD1306 OLED height in pixels
@@ -158,6 +160,7 @@ typedef struct {
 
 // Procedure definitions
 void ssd1306_Init(void);
+uint8_t ssd1306_DetectAddress(void);
 void ssd1306_Fill(SSD1306_COLOR color);
 void ssd1306_UpdateScreen(void);
 void ssd1306_DrawPixel(uint8_t x, uint8_t y, SSD1306_COLOR color);

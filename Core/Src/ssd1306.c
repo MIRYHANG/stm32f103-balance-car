@@ -1,13 +1,138 @@
 #include "ssd1306.h"
+#include "main.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>  // For memcpy
 #include "stm32f1xx_hal.h"
 
-#if defined(SSD1306_USE_I2C)
+#if defined(SSD1306_USE_SW_I2C)
+
+static uint8_t SSD1306_SwI2cAddress = SSD1306_I2C_ADDR;
+
+static void ssd1306_SwI2cDelay(void) {
+    for (volatile uint32_t i = 0; i < 32; ++i) {
+        __NOP();
+    }
+}
+
+static void ssd1306_Scl(GPIO_PinState state) {
+    HAL_GPIO_WritePin(OLED_SCL_GPIO_Port, OLED_SCL_Pin, state);
+}
+
+static void ssd1306_Sda(GPIO_PinState state) {
+    HAL_GPIO_WritePin(OLED_SDA_GPIO_Port, OLED_SDA_Pin, state);
+}
+
+static void ssd1306_SwI2cStart(void) {
+    ssd1306_Sda(GPIO_PIN_SET);
+    ssd1306_Scl(GPIO_PIN_SET);
+    ssd1306_SwI2cDelay();
+    ssd1306_Sda(GPIO_PIN_RESET);
+    ssd1306_SwI2cDelay();
+    ssd1306_Scl(GPIO_PIN_RESET);
+}
+
+static void ssd1306_SwI2cStop(void) {
+    ssd1306_Scl(GPIO_PIN_RESET);
+    ssd1306_Sda(GPIO_PIN_RESET);
+    ssd1306_SwI2cDelay();
+    ssd1306_Scl(GPIO_PIN_SET);
+    ssd1306_SwI2cDelay();
+    ssd1306_Sda(GPIO_PIN_SET);
+    ssd1306_SwI2cDelay();
+}
+
+static uint8_t ssd1306_SwI2cWriteByte(uint8_t byte) {
+    for (uint8_t bit = 0; bit < 8; ++bit) {
+        ssd1306_Scl(GPIO_PIN_RESET);
+        ssd1306_Sda((byte & 0x80U) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        ssd1306_SwI2cDelay();
+        ssd1306_Scl(GPIO_PIN_SET);
+        ssd1306_SwI2cDelay();
+        byte <<= 1;
+    }
+
+    /* Release SDA and sample the slave ACK on the ninth clock. */
+    ssd1306_Scl(GPIO_PIN_RESET);
+    ssd1306_Sda(GPIO_PIN_SET);
+    ssd1306_SwI2cDelay();
+    ssd1306_Scl(GPIO_PIN_SET);
+    ssd1306_SwI2cDelay();
+    const uint8_t acknowledged =
+        (HAL_GPIO_ReadPin(OLED_SDA_GPIO_Port, OLED_SDA_Pin) == GPIO_PIN_RESET);
+    ssd1306_Scl(GPIO_PIN_RESET);
+    return acknowledged;
+}
+
+static void ssd1306_SwI2cRecover(void) {
+    /* Release a slave that may have stopped halfway through a byte. */
+    ssd1306_Sda(GPIO_PIN_SET);
+    for (uint8_t i = 0; i < 9; ++i) {
+        ssd1306_Scl(GPIO_PIN_RESET);
+        ssd1306_SwI2cDelay();
+        ssd1306_Scl(GPIO_PIN_SET);
+        ssd1306_SwI2cDelay();
+    }
+    ssd1306_SwI2cStop();
+}
+
+static uint8_t ssd1306_SwI2cProbe(uint8_t address) {
+    ssd1306_SwI2cStart();
+    const uint8_t acknowledged = ssd1306_SwI2cWriteByte(address);
+    ssd1306_SwI2cStop();
+    return acknowledged;
+}
+
+static void ssd1306_SwI2cWrite(uint8_t control, const uint8_t *data, size_t size) {
+    ssd1306_SwI2cStart();
+    (void)ssd1306_SwI2cWriteByte(SSD1306_SwI2cAddress);
+    (void)ssd1306_SwI2cWriteByte(control);
+    for (size_t i = 0; i < size; ++i) {
+        (void)ssd1306_SwI2cWriteByte(data[i]);
+    }
+    ssd1306_SwI2cStop();
+}
+
+void ssd1306_Reset(void) {
+    /* The four-pin I2C module has no reset pin. */
+}
+
+uint8_t ssd1306_DetectAddress(void) {
+    ssd1306_SwI2cRecover();
+
+    if (ssd1306_SwI2cProbe((uint8_t)(0x3CU << 1))) {
+        SSD1306_SwI2cAddress = (uint8_t)(0x3CU << 1);
+        return 0x3CU;
+    }
+    if (ssd1306_SwI2cProbe((uint8_t)(0x3DU << 1))) {
+        SSD1306_SwI2cAddress = (uint8_t)(0x3DU << 1);
+        return 0x3DU;
+    }
+    return 0U;
+}
+
+void ssd1306_WriteCommand(uint8_t byte) {
+    ssd1306_SwI2cWrite(0x00, &byte, 1);
+}
+
+void ssd1306_WriteData(uint8_t* buffer, size_t buff_size) {
+    ssd1306_SwI2cWrite(0x40, buffer, buff_size);
+}
+
+#elif defined(SSD1306_USE_I2C)
 
 void ssd1306_Reset(void) {
     /* for I2C - do nothing */
+}
+
+uint8_t ssd1306_DetectAddress(void) {
+    if (HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, (0x3CU << 1), 2, 20) == HAL_OK) {
+        return 0x3CU;
+    }
+    if (HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, (0x3DU << 1), 2, 20) == HAL_OK) {
+        return 0x3DU;
+    }
+    return 0U;
 }
 
 // Send a byte to the command register
@@ -31,6 +156,10 @@ void ssd1306_Reset(void) {
     HAL_Delay(10);
     HAL_GPIO_WritePin(SSD1306_Reset_Port, SSD1306_Reset_Pin, GPIO_PIN_SET);
     HAL_Delay(10);
+}
+
+uint8_t ssd1306_DetectAddress(void) {
+    return 1U;
 }
 
 // Send a byte to the command register

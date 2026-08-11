@@ -37,11 +37,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/mpu6050.h
         Core/Src/oled.c
         Core/Inc/oled.h
-        Core/Inc/ssd1306.h
-        Core/Inc/ssd1306_fonts.h
-        Core/Src/ssd1306_fonts.c
-        Core/Src/ssd1306.c
-        Core/Inc/ssd1306_conf.h)
+        Core/Src/oled_data.c
+        Core/Inc/oled_data.h)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
