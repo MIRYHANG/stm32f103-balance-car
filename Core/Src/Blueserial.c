@@ -9,15 +9,21 @@
 char BlueSerial_RxPacket[100];
 volatile uint8_t BlueSerial_RxFlag = 0;
 
-static uint8_t BlueSerial_RxData;
+static volatile uint8_t BlueSerial_RxData;
+static uint8_t BlueSerial_RxState;
+static uint8_t BlueSerial_RxIndex;
 
 /**
  * @brief 蓝牙串口初始化
  */
 
-void BlueSerial_Init(void)
+HAL_StatusTypeDef BlueSerial_Init(void)
 {
-    HAL_UART_Receive_IT(&huart2,&BlueSerial_RxData,1);
+    BlueSerial_RxFlag = 0;
+    BlueSerial_RxState = 0;
+    BlueSerial_RxIndex = 0;
+    BlueSerial_RxPacket[0] = '\0';
+    return HAL_UART_Receive_IT(&huart2, (uint8_t *)&BlueSerial_RxData, 1);
 }
 
 /**
@@ -33,16 +39,16 @@ void BlueSerial_SendByte(uint8_t Byte)
  * @brief 蓝牙串口发送数组
  */
 
-void BlueSerial_SendArray(uint8_t *Array, uint16_t Length)
+void BlueSerial_SendArray(const uint8_t *Array, uint16_t Length)
 {
-    HAL_UART_Transmit(&huart2,Array,Length,HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t *)Array, Length, HAL_MAX_DELAY);
 }
 
 /**
  * @brief 蓝牙串口发送字符串
  */
 
-void BlueSerial_SendString(char *String)
+void BlueSerial_SendString(const char *String)
 {
     HAL_UART_Transmit(&huart2,(uint8_t *)String,strlen(String),HAL_MAX_DELAY);
 }
@@ -85,7 +91,7 @@ void BlueSerial_SendNumber(uint32_t Number, uint8_t Length)
  * @brief 蓝牙串口格式化输出
  */
 
-void BlueSerial_Printf(char *format, ...)
+void BlueSerial_Printf(const char *format, ...)
 {
     char String[100];
 
@@ -124,52 +130,34 @@ uint8_t BlueSerial_GetRxFlag(void)
  * @brief HAL串口接收完成回调
  */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void BlueSerial_RxIRQHandler(void)
 {
-    static uint8_t RxState = 0;
-    static uint8_t pRxPacket = 0;
+    uint8_t RxData = BlueSerial_RxData;
 
-    if (huart->Instance == USART2)
+    if (BlueSerial_RxState == 0)
     {
-        uint8_t RxData = BlueSerial_RxData;
-
-        if (RxState == 0)
+        if ((RxData == '[') && (BlueSerial_RxFlag == 0))
         {
-            if ((RxData == '[') && (BlueSerial_RxFlag == 0))
-            {
-                RxState = 1;
-                pRxPacket = 0;
-            }
+            BlueSerial_RxState = 1;
+            BlueSerial_RxIndex = 0;
         }
-
-        else if (RxState == 1)
-        {
-            if (RxData == ']')
-            {
-                RxState = 0;
-
-                BlueSerial_RxPacket[pRxPacket] = '\0';
-
-                BlueSerial_RxFlag = 1;
-            }
-
-            else
-            {
-
-                if (pRxPacket < sizeof(BlueSerial_RxPacket) - 1)
-                {
-                    BlueSerial_RxPacket[pRxPacket] = RxData;
-
-                    pRxPacket++;
-                }
-
-                else
-                {
-                    RxState = 0;
-                    pRxPacket = 0;
-                }
-            }
-        }
-        HAL_UART_Receive_IT(&huart2,&BlueSerial_RxData,1);
     }
+    else if (RxData == ']')
+    {
+        BlueSerial_RxState = 0;
+        BlueSerial_RxPacket[BlueSerial_RxIndex] = '\0';
+        BlueSerial_RxFlag = 1;
+    }
+    else if (BlueSerial_RxIndex < sizeof(BlueSerial_RxPacket) - 1U)
+    {
+        BlueSerial_RxPacket[BlueSerial_RxIndex++] = (char)RxData;
+    }
+    else
+    {
+        BlueSerial_RxState = 0;
+        BlueSerial_RxIndex = 0;
+        BlueSerial_RxPacket[0] = '\0';
+    }
+
+    (void)HAL_UART_Receive_IT(&huart2, (uint8_t *)&BlueSerial_RxData, 1);
 }

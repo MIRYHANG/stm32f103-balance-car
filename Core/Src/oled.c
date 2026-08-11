@@ -567,6 +567,11 @@ void OLED_ReverseArea(int16_t X, int16_t Y, uint8_t Width, uint8_t Height)
   */
 void OLED_ShowChar(int16_t X, int16_t Y, char Char, uint8_t FontSize)
 {
+	if ((uint8_t)Char < (uint8_t)' ' || (uint8_t)Char > (uint8_t)'~')
+	{
+		Char = '?';
+	}
+
 	if (FontSize == OLED_8X16)		//字体为宽8像素，高16像素
 	{
 		/*将ASCII字模库OLED_F8x16的指定数据以8*16的图像格式显示*/
@@ -590,7 +595,7 @@ void OLED_ShowChar(int16_t X, int16_t Y, char Char, uint8_t FontSize)
   * 返 回 值：无
   * 说    明：调用此函数后，要想真正地呈现在屏幕上，还需调用更新函数
   */
-void OLED_ShowString(int16_t X, int16_t Y, char *String, uint8_t FontSize)
+void OLED_ShowString(int16_t X, int16_t Y, const char *String, uint8_t FontSize)
 {
 	uint16_t i = 0;
 	int16_t XOffset = 0;
@@ -686,7 +691,7 @@ void OLED_ShowSignedNum(int16_t X, int16_t Y, int32_t Number, uint8_t Length, ui
 	else									//数字小于0
 	{
 		OLED_ShowChar(X, Y, '-', FontSize);	//显示-号
-		Number1 = -Number;					//Number1等于Number取负
+		Number1 = (uint32_t)(-(int64_t)Number);	//Avoid overflow for INT32_MIN
 	}
 	
 	for (i = 0; i < Length; i++)			//遍历数字的每一位								
@@ -811,7 +816,7 @@ void OLED_ShowFloatNum(int16_t X, int16_t Y, double Number, uint8_t IntLength, u
   * 返 回 值：无
   * 说    明：调用此函数后，要想真正地呈现在屏幕上，还需调用更新函数
   */
-void OLED_ShowChinese(int16_t X, int16_t Y, char *Chinese)
+void OLED_ShowChinese(int16_t X, int16_t Y, const char *Chinese)
 {
 	uint8_t pChinese = 0;
 	uint8_t pIndex;
@@ -909,12 +914,12 @@ void OLED_ShowImage(int16_t X, int16_t Y, uint8_t Width, uint8_t Height, const u
   * 返 回 值：无
   * 说    明：调用此函数后，要想真正地呈现在屏幕上，还需调用更新函数
   */
-void OLED_Printf(int16_t X, int16_t Y, uint8_t FontSize, char *format, ...)
+void OLED_Printf(int16_t X, int16_t Y, uint8_t FontSize, const char *format, ...)
 {
 	char String[256];						//定义字符数组
 	va_list arg;							//定义可变参数列表数据类型的变量arg
 	va_start(arg, format);					//从format开始，接收参数列表到arg变量
-	vsprintf(String, format, arg);			//使用vsprintf打印格式化字符串和参数列表到字符数组中
+	vsnprintf(String, sizeof(String), format, arg);
 	va_end(arg);							//结束变量arg
 	OLED_ShowString(X, Y, String, FontSize);//OLED显示字符数组（字符串）
 }
@@ -1452,4 +1457,3 @@ void OLED_DrawArc(int16_t X, int16_t Y, uint8_t Radius, int16_t StartAngle, int1
 
 /*****************江协科技|版权所有****************/
 /*****************jiangxiekeji.com*****************/
-

@@ -13,9 +13,10 @@ volatile uint8_t Serial_RxFlag;
 /**
  * @ brief 串口初始化
  */
-void Serial_Init(void)
+HAL_StatusTypeDef Serial_Init(void)
 {
-    HAL_UART_Receive_IT(&huart1,(uint8_t *)&Serial_RxData,1);
+    Serial_RxFlag = 0;
+    return HAL_UART_Receive_IT(&huart1, (uint8_t *)&Serial_RxData, 1);
 }
 
 /**
@@ -30,16 +31,16 @@ void Serial_SendByte(uint8_t Byte)
  * @brief 串口发送数组
  */
 
-void Serial_SendArray(uint8_t *Array, uint16_t Length)
+void Serial_SendArray(const uint8_t *Array, uint16_t Length)
 {
-    HAL_UART_Transmit(&huart1,Array,Length,HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t *)Array, Length, HAL_MAX_DELAY);
 }
 
 /**
  * @brief 串口发送字符串
  */
 
-void Serial_SendString(char *String)
+void Serial_SendString(const char *String)
 {
     HAL_UART_Transmit(&huart1,(uint8_t *)String,strlen(String),HAL_MAX_DELAY);
 }
@@ -93,7 +94,7 @@ int fputc(int ch, FILE *f)
  * @brief 自定义 Serial_Printf
  */
 
-void Serial_Printf(char *format, ...)  //不定参数 可以传入不同数据类型
+void Serial_Printf(const char *format, ...)  //不定参数 可以传入不同数据类型
 {
     char String[100];
 
@@ -138,13 +139,8 @@ uint8_t Serial_GetRxData(void)
  * @brief HAL 串口接收完成回调
  */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void Serial_RxIRQHandler(void)
 {
-    if (huart->Instance == USART1)
-    {
-
-        Serial_RxFlag = 1;
-
-        HAL_UART_Receive_IT(&huart1,(uint8_t *)&Serial_RxData,1);
-    }
+    Serial_RxFlag = 1;
+    (void)HAL_UART_Receive_IT(&huart1, (uint8_t *)&Serial_RxData, 1);
 }

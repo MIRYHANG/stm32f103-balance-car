@@ -16,10 +16,28 @@ void PWM_Init(void)
 
 void PWM_SetCompare1(uint16_t compare)
 {
+    uint32_t max_compare = __HAL_TIM_GET_AUTORELOAD(&htim2) + 1U;
+    if (max_compare > UINT16_MAX)
+    {
+        max_compare = UINT16_MAX;
+    }
+    if ((uint32_t)compare > max_compare)
+    {
+        compare = (uint16_t)max_compare;
+    }
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, compare);
 }
 
 void PWM_SetCompare2(uint16_t compare)
 {
+    uint32_t max_compare = __HAL_TIM_GET_AUTORELOAD(&htim2) + 1U;
+    if (max_compare > UINT16_MAX)
+    {
+        max_compare = UINT16_MAX;
+    }
+    if ((uint32_t)compare > max_compare)
+    {
+        compare = (uint16_t)max_compare;
+    }
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, compare);
 }
