@@ -6,11 +6,8 @@
 #define MPU_MPU6050_H
 
 //从设备地址
-#define MPU6050_ADDRESS 0x68
-
-//读写地址
-#define MPU6050_ADDRESS_WRITE 0x68 << 1
-#define MPU6050_ADDRESS_READ 0x68 >> 1
+/* STM32 HAL expects the 7-bit I2C address shifted left by one bit. */
+#define MPU6050_ADDRESS (0x68U << 1)
 
 //初始化mpu6050芯片
 void MPU6050_Init(void);

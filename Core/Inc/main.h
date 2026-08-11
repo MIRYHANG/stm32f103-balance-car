@@ -57,6 +57,42 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define PWMA_Pin GPIO_PIN_0
+#define PWMA_GPIO_Port GPIOA
+#define PWMB_Pin GPIO_PIN_1
+#define PWMB_GPIO_Port GPIOA
+#define Key4_Pin GPIO_PIN_4
+#define Key4_GPIO_Port GPIOA
+#define Key3_Pin GPIO_PIN_5
+#define Key3_GPIO_Port GPIOA
+#define E1A_Pin GPIO_PIN_6
+#define E1A_GPIO_Port GPIOA
+#define E1B_Pin GPIO_PIN_7
+#define E1B_GPIO_Port GPIOA
+#define Key2_Pin GPIO_PIN_0
+#define Key2_GPIO_Port GPIOB
+#define Key1_Pin GPIO_PIN_1
+#define Key1_GPIO_Port GPIOB
+#define AIN1_Pin GPIO_PIN_12
+#define AIN1_GPIO_Port GPIOB
+#define AIN2_Pin GPIO_PIN_13
+#define AIN2_GPIO_Port GPIOB
+#define BIN1_Pin GPIO_PIN_14
+#define BIN1_GPIO_Port GPIOB
+#define BIN2_Pin GPIO_PIN_15
+#define BIN2_GPIO_Port GPIOB
+#define NRF24_CE_Pin GPIO_PIN_8
+#define NRF24_CE_GPIO_Port GPIOA
+#define NRF24_CSN_Pin GPIO_PIN_15
+#define NRF24_CSN_GPIO_Port GPIOA
+#define E2A_Pin GPIO_PIN_6
+#define E2A_GPIO_Port GPIOB
+#define E2B_Pin GPIO_PIN_7
+#define E2B_GPIO_Port GPIOB
+#define OLED_SCL_Pin GPIO_PIN_8
+#define OLED_SCL_GPIO_Port GPIOB
+#define OLED_SDA_Pin GPIO_PIN_9
+#define OLED_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
