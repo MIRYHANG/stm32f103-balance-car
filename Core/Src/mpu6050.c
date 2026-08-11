@@ -3,33 +3,38 @@
 //
 #include "mpu6050.h"
 
-/*
+/**
  * @ brief 写寄存器地址
  *
  * @ param reg 寄存器地址
  * @ param data 寄存器的值
  */
+
 void MPU6050_Write_Reg(const uint8_t reg, uint8_t data)
 {
     //1.操作句柄 2.从设备地址 3.寄存器地址 4.寄存器地址的位数 5.写入的数据地址 6.写入的字节数 7.超时时间
     HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDRESS,
         reg, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
 }
-/*
+
+/**
  * @ brief 读寄存器地址
  *
  * @ param reg 寄存器地址
  * @ param data 寄存器的值
  */
+
 void MPU6050_Read_Reg(const uint8_t reg, uint8_t *data)
 {
     //1.操作句柄 2.从设备地址 3.寄存器地址 4.寄存器地址的位数 5.读入的数据地址 6.读入的字节数 7.超时时间
     HAL_I2C_Mem_Read(&hi2c2, MPU6050_ADDRESS,
         reg, I2C_MEMADD_SIZE_8BIT, data, 1, 100);
 }
-/*
+
+/**
  * @ brief 初始化mpu6050
  */
+
 void MPU6050_Init(void)
 {
     //重启复位芯片 配置电源管理寄存器

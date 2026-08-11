@@ -38,7 +38,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/oled.c
         Core/Inc/oled.h
         Core/Src/oled_data.c
-        Core/Inc/oled_data.h)
+        Core/Inc/oled_data.h
+        Core/Src/serial.c
+        Core/Inc/serial.h)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
