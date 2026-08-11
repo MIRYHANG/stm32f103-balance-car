@@ -15,7 +15,7 @@ volatile uint8_t Serial_RxFlag;
  */
 void Serial_Init(void)
 {
-    HAL_UART_Receive_IT(&huart2,(uint8_t *)&Serial_RxData,1);
+    HAL_UART_Receive_IT(&huart1,(uint8_t *)&Serial_RxData,1);
 }
 
 /**
@@ -23,7 +23,7 @@ void Serial_Init(void)
  */
 void Serial_SendByte(uint8_t Byte)
 {
-    HAL_UART_Transmit(&huart2,&Byte,1,HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1,&Byte,1,HAL_MAX_DELAY);
 }
 
 /**
@@ -32,7 +32,7 @@ void Serial_SendByte(uint8_t Byte)
 
 void Serial_SendArray(uint8_t *Array, uint16_t Length)
 {
-    HAL_UART_Transmit(&huart2,Array,Length,HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1,Array,Length,HAL_MAX_DELAY);
 }
 
 /**
@@ -41,7 +41,7 @@ void Serial_SendArray(uint8_t *Array, uint16_t Length)
 
 void Serial_SendString(char *String)
 {
-    HAL_UART_Transmit(&huart2,(uint8_t *)String,strlen(String),HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1,(uint8_t *)String,strlen(String),HAL_MAX_DELAY);
 }
 
 /**
@@ -84,7 +84,7 @@ int fputc(int ch, FILE *f)
 {
     uint8_t temp = (uint8_t)ch;
 
-    HAL_UART_Transmit(&huart2,&temp,1,HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1,&temp,1,HAL_MAX_DELAY);
 
     return ch;
 }
@@ -140,15 +140,11 @@ uint8_t Serial_GetRxData(void)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == USART2)
+    if (huart->Instance == USART1)
     {
-        /*
-         * Serial_RxData 已经由 HAL 写入收到的数据
-         */
+
         Serial_RxFlag = 1;
-        /*
-         * 重新开启下一次 1 字节接收
-         */
-        HAL_UART_Receive_IT(&huart2,(uint8_t *)&Serial_RxData,1);
+
+        HAL_UART_Receive_IT(&huart1,(uint8_t *)&Serial_RxData,1);
     }
 }

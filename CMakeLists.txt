@@ -42,7 +42,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/serial.c
         Core/Inc/serial.h
         Core/Inc/Key.h
-        Core/Src/Key.c)
+        Core/Src/Key.c
+        Core/Src/Blueserial.c
+        Core/Inc/Blueserial.h)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
