@@ -12,4 +12,9 @@
 //初始化mpu6050芯片
 void MPU6050_Init(void);
 
+uint8_t MPU6050_GetID(void);
+
+/* 获取六轴原始数据 */
+void MPU6050_GetData(void);
+
 #endif //MPU_MPU6050_H

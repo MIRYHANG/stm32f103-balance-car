@@ -3,6 +3,9 @@
 //
 #include "mpu6050.h"
 
+int16_t AccX, AccY, AccZ;
+int16_t GyroX, GyroY, GyroZ;
+
 /**
  * @ brief 写寄存器地址
  *
@@ -29,6 +32,40 @@ void MPU6050_Read_Reg(const uint8_t reg, uint8_t *data)
     //1.操作句柄 2.从设备地址 3.寄存器地址 4.寄存器地址的位数 5.读入的数据地址 6.读入的字节数 7.超时时间
     HAL_I2C_Mem_Read(&hi2c2, MPU6050_ADDRESS,
         reg, I2C_MEMADD_SIZE_8BIT, data, 1, 100);
+}
+
+/**
+ *
+ * @ brief WHO_AM_I 检测是否正常通信
+ */
+
+uint8_t MPU6050_GetID(void)
+{
+    uint8_t id;
+
+    MPU6050_Read_Reg(0x75, &id);
+
+    return id;
+}
+
+/**
+ * @ brief 读取多个寄存器地址
+ * @ param reg 寄存器地址
+ * @ param data 传输数据
+ * @ param len 传输数据长度
+ */
+
+void MPU6050_Read_Regs(uint8_t reg, uint8_t *data, uint8_t len)
+{
+    HAL_I2C_Mem_Read(
+        &hi2c2,
+        MPU6050_ADDRESS,
+        reg,
+        I2C_MEMADD_SIZE_8BIT,
+        data,
+        len,
+        100
+    );
 }
 
 /**
@@ -72,4 +109,23 @@ void MPU6050_Init(void)
 
     //使能加速度传感器 角速度传感器
     MPU6050_Write_Reg(0x6C,0x00);
+}
+
+/**
+ * @ brief 读取六轴传感器的值
+ */
+
+void MPU6050_GetData(void)
+{
+    uint8_t Data[14];
+
+    MPU6050_Read_Regs(0x3B, Data, 14);
+
+    AccX = (int16_t)((Data[0] << 8) | Data[1]);
+    AccY = (int16_t)((Data[2] << 8) | Data[3]);
+    AccZ = (int16_t)((Data[4] << 8) | Data[5]);
+
+    GyroX = (int16_t)((Data[8] << 8) | Data[9]);
+    GyroY = (int16_t)((Data[10] << 8) | Data[11]);
+    GyroZ = (int16_t)((Data[12] << 8) | Data[13]);
 }
