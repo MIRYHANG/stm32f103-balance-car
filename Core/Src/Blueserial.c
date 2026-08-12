@@ -306,3 +306,27 @@ void BlueSerial_TxErrorIRQHandler(void)
     BlueSerial_TxDMABusy = 0U;
     BlueSerial_TxStartDMA();
 }
+
+/**
+ * @brief USART2 接收错误恢复
+ */
+
+void BlueSerial_RxErrorIRQHandler(void)
+{
+    BlueSerial_RxState = 0U;
+    BlueSerial_RxIndex = 0U;
+
+    if (BlueSerial_RxFlag == 0U)
+    {
+        BlueSerial_RxPacket[0] = '\0';
+    }
+
+    if (huart2.RxState == HAL_UART_STATE_READY)
+    {
+        (void)HAL_UART_Receive_IT(
+            &huart2,
+            (uint8_t *)&BlueSerial_RxData,
+            1U
+        );
+    }
+}

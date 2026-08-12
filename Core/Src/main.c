@@ -35,7 +35,6 @@
 #include "encoder.h"
 #include "pwm.h"
 #include "mpu6050.h"
-#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,9 +56,9 @@
 
 /* USER CODE BEGIN PV */
 volatile uint32_t SchedulerTick = 0;
-float AngleAcc;			 //由加速度计得到的角度值
-float AngleGyro;		 //由陀螺仪得到的角度值，执行互补滤波后，此值基本与Angle相等
-float Angle;
+
+volatile uint8_t TimerErrorFlag;  //定时中断执行超时标志位
+volatile uint16_t TimerCount;     //定时中断执行时间对应的计数值
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -120,9 +119,15 @@ int main(void)
     Error_Handler();
   }
 
-  BlueSerial_Init();
+  if (BlueSerial_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-  HAL_TIM_Base_Start_IT(&htim1);
+  if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -133,56 +138,78 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    static uint32_t LastMpuTick = 0;
     static uint32_t LastOledTick = 0;
     static uint32_t LastSerialTick = 0;
 
     uint32_t Now = SchedulerTick;
 
-    /* 1ms任务 */
-    if ((uint32_t)(Now - LastMpuTick) >= 1U)
+    /* 10ms任务：OLED显示 */
+    if ((uint32_t)(Now - LastOledTick) >= 10U)
     {
-      uint32_t Elapsed = Now - LastMpuTick;
-      LastMpuTick = Now;
-      if (Elapsed > 20U)
-      {
-        Elapsed = 20U;
-      }
-      if (MPU6050_GetData() == HAL_OK)
-      {
-        // GyroY -= 16;     //由设备自行更改
-        float Dt = (float)Elapsed * 0.001f;
+      int16_t DisplayAccX;
+      int16_t DisplayAccY;
+      int16_t DisplayAccZ;
+      int16_t DisplayGyroX;
+      int16_t DisplayGyroY;
+      int16_t DisplayGyroZ;
+      uint8_t DisplayTimerErrorFlag;
+      uint16_t DisplayTimerCount;
+      uint32_t Primask;
 
-        AngleAcc = -atan2f((float)AccX,(float)AccZ) / 3.14159f * 180.0f;
-
-        AngleGyro = Angle + GyroY / 32768.0f * 2000.0f * Dt;
-
-        const float Alpha = 0.001f;
-        Angle = Alpha * AngleAcc + (1.0f - Alpha) * AngleGyro;  //互补滤波
-      }
-    }
-
-    /* 100ms任务 */
-    if ((uint32_t)(Now - LastOledTick) >= 100U)
-    {
       LastOledTick = Now;
 
-      OLED_Printf(0, 0, OLED_8X16, "%+06d", AccX);
-      OLED_Printf(0, 16, OLED_8X16, "%+06d", AccY);
-      OLED_Printf(0, 32, OLED_8X16, "%+06d", AccZ);
+      /* 先保存同一次采样的数据，避免显示过程中六轴数据前后不一致 */
+      Primask = __get_PRIMASK();
+      __disable_irq();
+      DisplayAccX = AccX;
+      DisplayAccY = AccY;
+      DisplayAccZ = AccZ;
+      DisplayGyroX = GyroX;
+      DisplayGyroY = GyroY;
+      DisplayGyroZ = GyroZ;
+      DisplayTimerErrorFlag = TimerErrorFlag;
+      DisplayTimerCount = TimerCount;
+      if (Primask == 0U)
+      {
+        __enable_irq();
+      }
 
-      OLED_Printf(64, 0, OLED_8X16, "%+06d", GyroX);
-      OLED_Printf(64, 16, OLED_8X16, "%+06d", GyroY);
-      OLED_Printf(64, 32, OLED_8X16, "%+06d", GyroZ);
+      OLED_Printf(0, 0, OLED_8X16, "%+06d", DisplayAccX);
+      OLED_Printf(0, 16, OLED_8X16, "%+06d", DisplayAccY);
+      OLED_Printf(0, 32, OLED_8X16, "%+06d", DisplayAccZ);
 
-      OLED_UpdateArea(0, 0, 128, 48);
+      OLED_Printf(64, 0, OLED_8X16, "%+06d", DisplayGyroX);
+      OLED_Printf(64, 16, OLED_8X16, "%+06d", DisplayGyroY);
+      OLED_Printf(64, 32, OLED_8X16, "%+06d", DisplayGyroZ);
+
+      OLED_Printf(0, 48, OLED_8X16, "Flag:%1d", DisplayTimerErrorFlag);
+      OLED_Printf(64, 48, OLED_8X16, "C:%05d", DisplayTimerCount);
+
+      OLED_Update();
     }
 
-    /* 5ms任务 */
+    /* 5ms任务：蓝牙串口发送角度 */
     if ((uint32_t)(Now - LastSerialTick) >= 5U)
     {
+      float SendAngleAcc;
+      float SendAngleGyro;
+      float SendAngle;
+      uint32_t Primask;
+
       LastSerialTick = Now;
-      BlueSerial_Printf("[plot,%f,%f,%f]", AngleAcc, AngleGyro, Angle);
+
+      /* 三个角度必须来自同一次滤波计算 */
+      Primask = __get_PRIMASK();     /*记录中断状态*/
+      __disable_irq();
+      SendAngleAcc = AngleAcc;
+      SendAngleGyro = AngleGyro;
+      SendAngle = Angle;
+      if (Primask == 0U)
+      {
+        __enable_irq();
+      }
+
+      BlueSerial_Printf("[plot,%f,%f,%f]", SendAngleAcc, SendAngleGyro, SendAngle);
     }
 
   }
@@ -235,6 +262,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
     Key_Tick();
     SchedulerTick++;
+
+    /* 每1ms启动一次MPU6050中断读取，启动后立即退出，不等待I2C传输 */
+    (void)MPU6050_StartReadIT();
+
+    /* 中断函数退出前，再次检查标志位 */
+    /* 如果标志位又置1了，说明中断函数执行时间超过了定时时间（1ms）*/
+    if (__HAL_TIM_GET_FLAG(htim, TIM_FLAG_UPDATE) != RESET)
+    {
+      /* 置TimerErrorFlag为1，表示定时中断错误 */
+      TimerErrorFlag = 1;
+
+      /* 清标志位，避免中断连续触发，导致主函数完全无法执行 */
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_UPDATE);
+    }
+
+    /* 中断函数退出前，读取计数器的值，此值可用于测量中断函数的具体执行时间 */
+    TimerCount = __HAL_TIM_GET_COUNTER(htim);
   }
 }
 /* USER CODE END 4 */

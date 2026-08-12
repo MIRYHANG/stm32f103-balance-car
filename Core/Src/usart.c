@@ -255,10 +255,23 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-  if ((huart->Instance == USART2) &&
-      ((huart->ErrorCode & HAL_UART_ERROR_DMA) != 0U))
+  if (huart->Instance != USART2)
+  {
+    return;
+  }
+
+  if ((huart->ErrorCode & HAL_UART_ERROR_DMA) != 0U)
   {
     BlueSerial_TxErrorIRQHandler();
+  }
+
+  if ((huart->ErrorCode &
+      (HAL_UART_ERROR_PE |
+       HAL_UART_ERROR_NE |
+       HAL_UART_ERROR_FE |
+       HAL_UART_ERROR_ORE)) != 0U)
+  {
+    BlueSerial_RxErrorIRQHandler();
   }
 }
 /* USER CODE END 1 */

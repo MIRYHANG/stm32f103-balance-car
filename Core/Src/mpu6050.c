@@ -2,9 +2,54 @@
 // Created by YZH on 2026/8/10.
 //
 #include "mpu6050.h"
+#include <math.h>
 
-int16_t AccX, AccY, AccZ;
-int16_t GyroX, GyroY, GyroZ;
+volatile int16_t AccX, AccY, AccZ;
+volatile int16_t GyroX, GyroY, GyroZ;
+
+volatile float AngleAcc;
+volatile float AngleGyro;
+volatile float Angle;
+
+static uint8_t MPU6050_RxBuffer[14];
+static volatile uint8_t MPU6050_ReadBusy;
+
+/**
+ * @ brief 解析六轴传感器的原始数据
+ */
+
+static void MPU6050_ParseData(const uint8_t *Data)
+{
+    AccX = (int16_t)(((uint16_t)Data[0] << 8) | Data[1]);
+    AccY = (int16_t)(((uint16_t)Data[2] << 8) | Data[3]);
+    AccZ = (int16_t)(((uint16_t)Data[4] << 8) | Data[5]);
+
+    GyroX = (int16_t)(((uint16_t)Data[8] << 8) | Data[9]);
+    GyroY = (int16_t)(((uint16_t)Data[10] << 8) | Data[11]);
+    GyroZ = (int16_t)(((uint16_t)Data[12] << 8) | Data[13]);
+}
+
+/**
+ * @ brief 计算俯仰角并执行互补滤波
+ * @ attention 每隔1ms执行一次
+ */
+
+static void MPU6050_UpdateAngle(void)
+{
+    const float Dt = 0.001f;
+    const float Alpha = 0.001f;
+
+    AngleAcc = -atan2f((float)AccX, (float)AccZ)
+               * (180.0f / 3.1415926f);
+
+    AngleGyro = Angle
+                + (float)GyroY
+                * (2000.0f / 32768.0f)
+                * Dt;
+
+    Angle = Alpha * AngleAcc
+            + (1.0f - Alpha) * AngleGyro;
+}
 
 /**
  * @ brief 写寄存器地址
@@ -141,8 +186,8 @@ HAL_StatusTypeDef MPU6050_Init(void)
         return HAL_ERROR;
     }
 
-    //设置采样频率 香农定律：采样频率>=2*使用频率 采样分频为2
-    if (MPU6050_Write_Reg(0x19,0x01) != HAL_OK)
+    //设置采样频率：DLPF开启时，1kHz / (1 + SMPLRT_DIV) = 1kHz
+    if (MPU6050_Write_Reg(0x19,0x00) != HAL_OK)
     {
         return HAL_ERROR;
     }
@@ -181,13 +226,59 @@ HAL_StatusTypeDef MPU6050_GetData(void)
         return HAL_ERROR;
     }
 
-    AccX = (int16_t)((Data[0] << 8) | Data[1]);
-    AccY = (int16_t)((Data[2] << 8) | Data[3]);
-    AccZ = (int16_t)((Data[4] << 8) | Data[5]);
-
-    GyroX = (int16_t)((Data[8] << 8) | Data[9]);
-    GyroY = (int16_t)((Data[10] << 8) | Data[11]);
-    GyroZ = (int16_t)((Data[12] << 8) | Data[13]);
+    MPU6050_ParseData(Data);
 
     return HAL_OK;
+}
+
+/**
+ * @ brief 启动一次六轴数据中断读取
+ */
+
+HAL_StatusTypeDef MPU6050_StartReadIT(void)
+{
+    HAL_StatusTypeDef Status;
+
+    if (MPU6050_ReadBusy != 0U)
+    {
+        return HAL_BUSY;
+    }
+
+    MPU6050_ReadBusy = 1U;
+
+    Status = HAL_I2C_Mem_Read_IT(
+        &hi2c2,
+        MPU6050_ADDRESS,
+        0x3B,
+        I2C_MEMADD_SIZE_8BIT,
+        MPU6050_RxBuffer,
+        sizeof(MPU6050_RxBuffer)
+    );
+
+    if (Status != HAL_OK)
+    {
+        MPU6050_ReadBusy = 0U;
+    }
+
+    return Status;
+}
+
+/**
+ * @ brief I2C读取完成处理
+ */
+
+void MPU6050_ReadCompleteIRQHandler(void)
+{
+    MPU6050_ParseData(MPU6050_RxBuffer);
+    MPU6050_UpdateAngle();
+    MPU6050_ReadBusy = 0U;
+}
+
+/**
+ * @ brief I2C读取错误处理
+ */
+
+void MPU6050_ReadErrorIRQHandler(void)
+{
+    MPU6050_ReadBusy = 0U;
 }

@@ -17,5 +17,6 @@ uint8_t BlueSerial_GetRxFlag(void);
 void BlueSerial_RxIRQHandler(void);
 void BlueSerial_TxIRQHandler(void);
 void BlueSerial_TxErrorIRQHandler(void);
+void BlueSerial_RxErrorIRQHandler(void);
 
 #endif
