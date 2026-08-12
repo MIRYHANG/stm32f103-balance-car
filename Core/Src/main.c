@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "i2c.h"
 #include "spi.h"
 #include "tim.h"
@@ -49,22 +50,16 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-volatile uint8_t MPU6050_GetDataFlag = 0;
-volatile uint8_t OLED_UpdateFlag = 0;
-volatile uint8_t Serial_SendFlag = 0;
 
-uint8_t TimerErrorFlag;  	//定时器错误标志位，如果定时中断函数执行时间超过了定时时间，则此标志位置1
-uint16_t TimerCount;	  //定时器计数值，此值可用于计算定时中断函数具体的执行时间
-
-float AngleAcc;			 //由加速度计得到的角度值
-float AngleGyro;		 //由陀螺仪得到的角度值，执行互补滤波后，此值基本与Angle相等
-float Angle;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+volatile uint32_t SchedulerTick = 0;
+float AngleAcc;			 //由加速度计得到的角度值
+float AngleGyro;		 //由陀螺仪得到的角度值，执行互补滤波后，此值基本与Angle相等
+float Angle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,6 +102,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_SPI1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
@@ -137,28 +133,39 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    /* 1ms任务 */
-    if (MPU6050_GetDataFlag == 1)
-    {
-      MPU6050_GetDataFlag = 0;
+    static uint32_t LastMpuTick = 0;
+    static uint32_t LastOledTick = 0;
+    static uint32_t LastSerialTick = 0;
 
+    uint32_t Now = SchedulerTick;
+
+    /* 1ms任务 */
+    if ((uint32_t)(Now - LastMpuTick) >= 1U)
+    {
+      uint32_t Elapsed = Now - LastMpuTick;
+      LastMpuTick = Now;
+      if (Elapsed > 20U)
+      {
+        Elapsed = 20U;
+      }
       if (MPU6050_GetData() == HAL_OK)
       {
         // GyroY -= 16;     //由设备自行更改
+        float Dt = (float)Elapsed * 0.001f;
 
-        AngleAcc = -atan2f(AccX,AccZ) / 3.14159 * 180;
+        AngleAcc = -atan2f((float)AccX,(float)AccZ) / 3.14159f * 180.0f;
 
-        AngleGyro = Angle + GyroY / 32768.0 * 2000 * 0.001;
+        AngleGyro = Angle + GyroY / 32768.0f * 2000.0f * Dt;
 
         const float Alpha = 0.001f;
-        Angle = Alpha * AngleAcc + (1 - Alpha) * AngleGyro;  //互补滤波
+        Angle = Alpha * AngleAcc + (1.0f - Alpha) * AngleGyro;  //互补滤波
       }
     }
 
-    /* 10ms任务 */
-    if (OLED_UpdateFlag == 1)
+    /* 100ms任务 */
+    if ((uint32_t)(Now - LastOledTick) >= 100U)
     {
-      OLED_UpdateFlag = 0;
+      LastOledTick = Now;
 
       OLED_Printf(0, 0, OLED_8X16, "%+06d", AccX);
       OLED_Printf(0, 16, OLED_8X16, "%+06d", AccY);
@@ -168,13 +175,13 @@ int main(void)
       OLED_Printf(64, 16, OLED_8X16, "%+06d", GyroY);
       OLED_Printf(64, 32, OLED_8X16, "%+06d", GyroZ);
 
-      OLED_Update();
+      OLED_UpdateArea(0, 0, 128, 48);
     }
 
     /* 5ms任务 */
-    if (Serial_SendFlag == 1)
+    if ((uint32_t)(Now - LastSerialTick) >= 5U)
     {
-      Serial_SendFlag = 0;
+      LastSerialTick = Now;
       BlueSerial_Printf("[plot,%f,%f,%f]", AngleAcc, AngleGyro, Angle);
     }
 
@@ -224,27 +231,10 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  static uint16_t count = 0;
-
   if (htim->Instance == TIM1)
   {
     Key_Tick();
-
-    MPU6050_GetDataFlag = 1;
-
-    count++;
-
-    /* 10ms刷新一次OLED */
-    if (count % 10 == 0)
-    {
-      OLED_UpdateFlag = 1;
-    }
-
-    /* 5ms发送一次数据 */
-    if (count % 5 == 0)
-    {
-      Serial_SendFlag = 1;
-    }
+    SchedulerTick++;
   }
 }
 /* USER CODE END 4 */
@@ -263,8 +253,6 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-
 #ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
