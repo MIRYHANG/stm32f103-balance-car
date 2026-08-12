@@ -15,5 +15,7 @@ void BlueSerial_SendNumber(uint32_t Number, uint8_t Length);
 void BlueSerial_Printf(const char *format, ...);
 uint8_t BlueSerial_GetRxFlag(void);
 void BlueSerial_RxIRQHandler(void);
+void BlueSerial_TxIRQHandler(void);
+void BlueSerial_TxErrorIRQHandler(void);
 
 #endif

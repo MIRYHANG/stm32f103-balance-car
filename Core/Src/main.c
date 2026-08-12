@@ -27,7 +27,14 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "oled.h"
-
+#include "Blueserial.h"
+#include "serial.h"
+#include "Key.h"
+#include "motor.h"
+#include "encoder.h"
+#include "pwm.h"
+#include "mpu6050.h"
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,7 +49,16 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+volatile uint8_t MPU6050_GetDataFlag = 0;
+volatile uint8_t OLED_UpdateFlag = 0;
+volatile uint8_t Serial_SendFlag = 0;
 
+uint8_t TimerErrorFlag;  	//定时器错误标志位，如果定时中断函数执行时间超过了定时时间，则此标志位置1
+uint16_t TimerCount;	  //定时器计数值，此值可用于计算定时中断函数具体的执行时间
+
+float AngleAcc;			 //由加速度计得到的角度值
+float AngleGyro;		 //由陀螺仪得到的角度值，执行互补滤波后，此值基本与Angle相等
+float Angle;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -102,10 +118,15 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
   OLED_Clear();
-  OLED_ShowString(20, 0, "Balance Car", OLED_8X16);
-  OLED_ShowString(36, 24, "OLED OK", OLED_8X16);
-  OLED_Update();
 
+  if (MPU6050_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  BlueSerial_Init();
+
+  HAL_TIM_Base_Start_IT(&htim1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -115,6 +136,48 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+    /* 1ms任务 */
+    if (MPU6050_GetDataFlag == 1)
+    {
+      MPU6050_GetDataFlag = 0;
+
+      if (MPU6050_GetData() == HAL_OK)
+      {
+        // GyroY -= 16;     //由设备自行更改
+
+        AngleAcc = -atan2f(AccX,AccZ) / 3.14159 * 180;
+
+        AngleGyro = Angle + GyroY / 32768.0 * 2000 * 0.001;
+
+        const float Alpha = 0.001f;
+        Angle = Alpha * AngleAcc + (1 - Alpha) * AngleGyro;  //互补滤波
+      }
+    }
+
+    /* 10ms任务 */
+    if (OLED_UpdateFlag == 1)
+    {
+      OLED_UpdateFlag = 0;
+
+      OLED_Printf(0, 0, OLED_8X16, "%+06d", AccX);
+      OLED_Printf(0, 16, OLED_8X16, "%+06d", AccY);
+      OLED_Printf(0, 32, OLED_8X16, "%+06d", AccZ);
+
+      OLED_Printf(64, 0, OLED_8X16, "%+06d", GyroX);
+      OLED_Printf(64, 16, OLED_8X16, "%+06d", GyroY);
+      OLED_Printf(64, 32, OLED_8X16, "%+06d", GyroZ);
+
+      OLED_Update();
+    }
+
+    /* 5ms任务 */
+    if (Serial_SendFlag == 1)
+    {
+      Serial_SendFlag = 0;
+      BlueSerial_Printf("[plot,%f,%f,%f]", AngleAcc, AngleGyro, Angle);
+    }
+
   }
   /* USER CODE END 3 */
 }
@@ -159,7 +222,31 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  static uint16_t count = 0;
 
+  if (htim->Instance == TIM1)
+  {
+    Key_Tick();
+
+    MPU6050_GetDataFlag = 1;
+
+    count++;
+
+    /* 10ms刷新一次OLED */
+    if (count % 10 == 0)
+    {
+      OLED_UpdateFlag = 1;
+    }
+
+    /* 5ms发送一次数据 */
+    if (count % 5 == 0)
+    {
+      Serial_SendFlag = 1;
+    }
+  }
+}
 /* USER CODE END 4 */
 
 /**
@@ -176,6 +263,8 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
+
+
 #ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number

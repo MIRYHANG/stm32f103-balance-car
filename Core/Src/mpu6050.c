@@ -123,8 +123,8 @@ HAL_StatusTypeDef MPU6050_Init(void)
         return HAL_ERROR;
     }
 
-    //配置加速度量程±2g
-    if (MPU6050_Write_Reg(0x1C,0x00) != HAL_OK)    //本质在Bit3写入0 选择对应的量程
+    //配置加速度量程±16g
+    if (MPU6050_Write_Reg(0x1C,3 << 3) != HAL_OK)    //本质在Bit3写入3 选择对应的量程
     {
         return HAL_ERROR;
     }
