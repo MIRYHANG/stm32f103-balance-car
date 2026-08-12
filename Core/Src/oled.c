@@ -1452,6 +1452,25 @@ void OLED_DrawArc(int16_t X, int16_t Y, uint8_t Radius, int16_t StartAngle, int1
 	}
 }
 
+/**
+ * @brief 更新OLED指定的一页
+ * @param Page 页码，范围0~7
+ */
+
+void OLED_UpdatePage(uint8_t Page)
+{
+	if (Page >= 8U)
+	{
+		return;
+	}
+
+	/* 设置到指定页的第0列 */
+	OLED_SetCursor(Page, 0);
+
+	/* 只发送当前页的128字节数据 */
+	OLED_WriteData(OLED_DisplayBuf[Page], 128);
+}
+
 /*********************功能函数*/
 
 

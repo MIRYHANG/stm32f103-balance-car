@@ -36,8 +36,27 @@ static void MPU6050_ParseData(const uint8_t *Data)
 
 static void MPU6050_UpdateAngle(void)
 {
-    const float Dt = 0.001f;
-    const float Alpha = 0.001f;
+    extern volatile uint32_t SchedulerTick;
+    const float Tau = 0.999f;
+    static uint32_t LastAngleTick;
+    uint32_t Now = SchedulerTick;
+    uint32_t Elapsed = Now - LastAngleTick;
+
+    LastAngleTick = Now;
+
+    if (Elapsed == 0U)
+    {
+        Elapsed = 1U;
+    }
+    else if (Elapsed > 20U)
+    {
+        Elapsed = 20U;
+    }
+
+    float Dt = (float)Elapsed * 0.001f;
+    float Alpha = Dt / (Tau + Dt);
+
+    GyroY -= 16;
 
     AngleAcc = -atan2f((float)AccX, (float)AccZ)
                * (180.0f / 3.1415926f);

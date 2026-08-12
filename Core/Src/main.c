@@ -138,13 +138,15 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    static uint32_t LastOledTick = 0;
+    static uint32_t LastOledFrameTick = 0;
+    static uint32_t LastOledPageTick = 0;
+    static uint8_t OledPage = 8U;
     static uint32_t LastSerialTick = 0;
 
     uint32_t Now = SchedulerTick;
 
-    /* 10ms任务：OLED显示 */
-    if ((uint32_t)(Now - LastOledTick) >= 10U)
+    /* 50ms任务：OLED显示 */
+    if ((OledPage >= 8U) && ((uint32_t)(Now - LastOledFrameTick) >= 50U))
     {
       int16_t DisplayAccX;
       int16_t DisplayAccY;
@@ -156,17 +158,20 @@ int main(void)
       uint16_t DisplayTimerCount;
       uint32_t Primask;
 
-      LastOledTick = Now;
+      LastOledFrameTick = Now;
 
       /* 先保存同一次采样的数据，避免显示过程中六轴数据前后不一致 */
       Primask = __get_PRIMASK();
       __disable_irq();
+
       DisplayAccX = AccX;
       DisplayAccY = AccY;
       DisplayAccZ = AccZ;
+
       DisplayGyroX = GyroX;
       DisplayGyroY = GyroY;
       DisplayGyroZ = GyroZ;
+
       DisplayTimerErrorFlag = TimerErrorFlag;
       DisplayTimerCount = TimerCount;
       if (Primask == 0U)
@@ -185,8 +190,10 @@ int main(void)
       OLED_Printf(0, 48, OLED_8X16, "Flag:%1d", DisplayTimerErrorFlag);
       OLED_Printf(64, 48, OLED_8X16, "C:%05d", DisplayTimerCount);
 
-      OLED_Update();
+      OledPage = 0U;
     }
+
+
 
     /* 5ms任务：蓝牙串口发送角度 */
     if ((uint32_t)(Now - LastSerialTick) >= 5U)
@@ -204,12 +211,22 @@ int main(void)
       SendAngleAcc = AngleAcc;
       SendAngleGyro = AngleGyro;
       SendAngle = Angle;
-      if (Primask == 0U)
+      if (Primask == 0U)  /*如果原来中断是开的,恢复成开  如果原来本来就是关闭的,不要擅自打开*/
       {
         __enable_irq();
       }
 
       BlueSerial_Printf("[plot,%f,%f,%f]", SendAngleAcc, SendAngleGyro, SendAngle);
+    }
+
+    /* 每次只更新OLED的一页 */
+    if ((OledPage < 8U) &&
+        ((uint32_t)(Now - LastOledPageTick) >= 1U))
+    {
+      LastOledPageTick = Now;
+
+      OLED_UpdatePage(OledPage);
+      OledPage++;
     }
 
   }
