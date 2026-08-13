@@ -55,9 +55,13 @@ ENTRY(Reset_Handler)
 /* Specify the memory areas */
 MEMORY
 {
-RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 20K
-FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 64K
+RAM (xrw)              : ORIGIN = 0x20000000, LENGTH = 20K
+FLASH (rx)             : ORIGIN = 0x08000000, LENGTH = 63K
+CABELL_STORAGE (rx)    : ORIGIN = 0x0800FC00, LENGTH = 1K
 }
+
+/* 最后一页Flash只保存Cabell对频地址，程序代码不能占用 */
+_cabell_storage_start = ORIGIN(CABELL_STORAGE);
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */

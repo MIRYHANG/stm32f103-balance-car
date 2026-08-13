@@ -51,6 +51,12 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Inc/motor.h
         Core/Src/encoder.c
         Core/Inc/encoder.h
+        Core/Src/cabell_receiver.c
+        Core/Inc/cabell_receiver.h
+        Core/Src/LED.c
+        Core/Inc/LED.h
+        Core/Src/PID.c
+        Core/Inc/PID.h
 )
 
 # Add STM32CubeMX generated sources

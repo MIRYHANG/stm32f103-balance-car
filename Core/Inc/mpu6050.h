@@ -20,6 +20,7 @@ extern volatile int16_t GyroZ;
 extern volatile float AngleAcc;
 extern volatile float AngleGyro;
 extern volatile float Angle;
+extern volatile uint8_t Run_Flag;
 //初始化mpu6050芯片
 HAL_StatusTypeDef MPU6050_Init(void);
 

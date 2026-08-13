@@ -35,6 +35,8 @@
 #include "encoder.h"
 #include "pwm.h"
 #include "mpu6050.h"
+#include "cabell_receiver.h"
+#include "LED.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,6 +58,8 @@
 
 /* USER CODE BEGIN PV */
 volatile uint32_t SchedulerTick = 0;
+uint8_t KeyNum = 0;
+volatile uint8_t Run_Flag = 0U;
 
 volatile uint8_t TimerErrorFlag;  //定时中断执行超时标志位
 volatile uint16_t TimerCount;     //定时中断执行时间对应的计数值
@@ -113,6 +117,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
   OLED_Clear();
+  if (Key_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  Encoder_Init();
+  Serial_Init();
+  Motor_Init();
 
   if (MPU6050_Init() != HAL_OK)
   {
@@ -120,6 +131,11 @@ int main(void)
   }
 
   if (BlueSerial_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (CabellReceiver_Init() != HAL_OK)
   {
     Error_Handler();
   }
@@ -137,6 +153,39 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (Run_Flag)
+    {
+      LED_ON();
+    }
+    else
+    {
+      LED_OFF();
+    }
+
+    KeyNum = Key_GetNum();
+    if (KeyNum == 1U)
+    {
+      uint32_t Primask = __get_PRIMASK();
+
+      /* 启停标志会在MPU中断里被倾倒保护清零，修改时暂时关闭中断避免互相覆盖 */
+      __disable_irq();
+      if (Run_Flag != 0U)
+      {
+        Run_Flag = 0U;
+      }
+      else if ((Angle <= 50.0f) && (Angle >= -50.0f))
+      {
+        Run_Flag = 1U;
+      }
+
+      if (Primask == 0U)
+      {
+        __enable_irq();
+      }
+    }
+
+    /* Cabell接收必须高频轮询，放在耗时任务前面 */
+    CabellReceiver_Process();
 
     static uint32_t LastOledFrameTick = 0;
     static uint32_t LastOledPageTick = 0;

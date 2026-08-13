@@ -10,7 +10,7 @@ static volatile uint8_t Key_Number = 0;
 HAL_StatusTypeDef Key_Init(void)
 {
     Key_Number = 0;
-    return HAL_TIM_Base_Start_IT(&htim1);
+    return HAL_OK;
 }
 
 uint8_t Key_GetNum(void)

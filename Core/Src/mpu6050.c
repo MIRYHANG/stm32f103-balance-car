@@ -68,6 +68,11 @@ static void MPU6050_UpdateAngle(void)
 
     Angle = Alpha * AngleAcc
             + (1.0f - Alpha) * AngleGyro;
+
+    if (Angle > 50 || Angle < -50)
+    {
+        Run_Flag = 0;
+    }
 }
 
 /**
